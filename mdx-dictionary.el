@@ -46,7 +46,7 @@
   "mdx-server execution file"
   :type '(file :must-match t))
 
-(defcustom mdx-dictionary-python "python3"
+(defcustom mdx-dictionary-python "python"
   "python used to start mdx-server"
   :type 'string)
 
@@ -56,21 +56,33 @@
 
 (defvar mdx-dictionary-server-process nil)
 
-(defvar mdx-dictionary-mdx-file nil
-  "mdx file used as dictionary")
+(defcustom mdx-dictionary-mdx-file "~/Data/dicts/英英/朗文当代英语辞典第5版/朗文当代英语辞典第5版.mdx"
+  "mdx file used as dictionary"
+  :type '(file :must-match t))
 
 ;;;###autoload
-(defun mdx-dictionary-start-server (mdx-file)
-  (interactive "fPlease choose a mdx-file:")
+(defun mdx-dictionary-start-server (&optional mdx-file)
+  (interactive)
   (mdx-dictionary-stop-server)
-  (setq mdx-dictionary-mdx-file mdx-file)
-  (let ((args `(,@mdx-dictionary-server-args ,mdx-file)))
-    (setq mdx-dictionary-server-process (apply #'start-process "mdx-dictionary-server" "*mdx-dictionary-server*" mdx-dictionary-python mdx-dictionary-server-file args))))
+  (let ((args `(,@mdx-dictionary-server-args ,(expand-file-name (or mdx-file mdx-dictionary-mdx-file) ))))
+    (setq mdx-dictionary-server-process
+          (let ((default-directory (file-name-directory (expand-file-name mdx-dictionary-server-file))))
+            (make-process :name "mdx-dictionary-server"
+                          :buffer "*mdx-dictionary-server*"
+                          :command (append (list mdx-dictionary-python
+                                                 (file-name-nondirectory mdx-dictionary-server-file))
+                                           args)
+                          :filter 'mdx-dictionary-process-filter)))))
+
+(defun mdx-dictionary-process-filter (proc string)
+  "Accumulates the strings received from the Kagome process."
+  (with-current-buffer (process-buffer proc)
+    (insert string)))
+
 
 ;;;###autoload
 (defun mdx-dictionary-stop-server ()
   (interactive)
-  (setq mdx-dictionary-mdx-file nil)
   (when mdx-dictionary-server-process
     (delete-process mdx-dictionary-server-process)
     (setq mdx-dictionary-server-process nil)))
@@ -146,7 +158,7 @@ It return an alist looks like
   (interactive)
   (let* ((word (or word
                    (and (use-region-p) (buffer-substring-no-properties (region-beginning) (region-end)))
-                   (word-at-point))) 
+                   (word-at-point)))
          (content (mdx-dictionary-request word))
          (expression (cdr (assoc 'expression content)))
          (us-phonetic (cdr (assoc 'us-phonetic content)))
