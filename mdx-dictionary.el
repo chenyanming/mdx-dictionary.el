@@ -84,7 +84,7 @@
 (defun mdx-dictionary-stop-server ()
   (interactive)
   (when (process-live-p mdx-dictionary-server-process )
-    (stop-process mdx-dictionary-server-process)
+    (kill-process mdx-dictionary-server-process)
     (setq mdx-dictionary-server-process nil)))
 
 ;;;###autoload
